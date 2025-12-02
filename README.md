@@ -65,3 +65,5 @@ Instruções rápidas para rodar o projeto **Backend (API)** final:
 ## 📝 Licença
 
 Este projeto utiliza a Licença MIT.
+
+Carla Beatriz
