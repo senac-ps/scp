@@ -102,5 +102,65 @@ def get_one_material(id_busca):
     else:
         return jsonify({"erro": "Material não encontrado no estoque"}), 404
 
+# --- ROTA 4: ATUALIZAR MATERIAL (PUT) ---
+@app.route("/api/materiais/<int:id_busca>", methods=["PUT"])
+def update_material(id_busca):
+    # 1. Pegar os dados novos do JSON
+    dados_novos = request.json
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # 2. Query de Atualização (UPDATE ... WHERE)
+    # Importante: Atualiza nome_mat e preco_m2 onde o id_material for igual ao da URL
+    sql = "UPDATE tbl_material SET nome_mat = %s, preco_m2 = %s WHERE id_material = %s"
+    
+    # 3. Montar a Tupla (Nome Novo, Preço Novo, ID da URL)
+    valores = (dados_novos["nome"], dados_novos["preco_m2"], id_busca)
+    
+    # 4. Executar
+    cursor.execute(sql, valores)
+    
+    # 5. COMMIT (Obrigatório para salvar a alteração!)
+    conn.commit()
+    
+    # 6. Verificar se alguma linha foi afetada
+    linhas_afetadas = cursor.rowcount
+    
+    cursor.close()
+    conn.close()
+    
+    if linhas_afetadas > 0:
+        dados_novos["id"] = id_busca
+        return jsonify(dados_novos), 200
+    else:
+        return jsonify({"erro": "Material não encontrado para atualizar"}), 404
+
+# --- ROTA 5: DELETAR MATERIAL (DELETE) ---
+@app.route("/api/materiais/<int:id_busca>", methods=["DELETE"])
+def delete_material(id_busca):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # 1. Query de Exclusão
+    sql = "DELETE FROM tbl_material WHERE id_material = %s"
+    
+    # 2. Executar (Lembre da vírgula na tupla de 1 item)
+    cursor.execute(sql, (id_busca, ))
+    
+    # 3. COMMIT (Obrigatório para confirmar a exclusão!)
+    conn.commit()
+    
+    # 4. Verificar se apagou mesmo
+    linhas_afetadas = cursor.rowcount
+    
+    cursor.close()
+    conn.close()
+    
+    if linhas_afetadas > 0:
+        return jsonify({"mensagem": "Material deletado com sucesso!"}), 200
+    else:
+        return jsonify({"erro": "Material não encontrado para deletar"}), 404
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)
