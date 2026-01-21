@@ -2,37 +2,357 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Sistema SCP - Demo Final</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; }
-        .card { border: 1px solid #ccc; padding: 10px; margin: 10px 0; border-radius: 5px; }
-        h1 { color: #333; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema SCP - Gestão Completa</title>
+    <link rel="stylesheet" href="css/style.css" type="text/css">
 </head>
 <body>
-    <h1>🏗️ Sistema SCP - Gestão de Materiais</h1>
-    <button onclick="carregarMateriais()">🔄 Carregar Materiais</button>
-    <div id="lista"></div>
 
-    <script>
-        async function carregarMateriais() {
-            // O fetch chama o Flask, o CORS deixa passar
-            const response = await fetch('http://localhost:5000/api/materiais');
-            const dados = await response.json();
-            
-            const divLista = document.getElementById('lista');
-            divLista.innerHTML = ""; // Limpa lista
+<div class="container">
+    <h1>🏗️ Sistema SCP - Painel de Controle</h1>
 
-            dados.forEach(item => {
-                divLista.innerHTML += `
-                    <div class="card">
-                        <h3>${item.nome}</h3>
-                        <p>Preço m²: R$ ${item.preco_m2}</p>
-                        <small>ID: ${item.id}</small>
-                    </div>
-                `;
-            });
+    <div class="tabs">
+        <button class="tab-btn active" onclick="abrirAba('materiais')">🪨 Materiais</button>
+        <button class="tab-btn" onclick="abrirAba('clientes')">👥 Clientes</button>
+        <button class="tab-btn" onclick="abrirAba('blocos')">🧱 Blocos</button>
+    </div>
+
+    <div id="materiais" class="tab-content active">
+        <div class="form-card">
+            <h3>Gerenciar Material</h3>
+            <input type="hidden" id="id_material"> <div class="form-group">
+                <label>Nome do Material:</label>
+                <input type="text" id="nome_material" placeholder="Ex: Granito Preto">
+            </div>
+            <div class="form-group">
+                <label>Preço m² (R$):</label>
+                <input type="number" id="preco_material" step="0.01" placeholder="0.00">
+            </div>
+            <button class="btn-save" onclick="salvarMaterial()">Salvar Material</button>
+            <button class="btn-cancel" id="btn_cancel_mat" onclick="limparFormMaterial()">Cancelar Edição</button>
+        </div>
+        
+        <table>
+            <thead><tr><th>ID</th><th>Nome</th><th>Preço m²</th><th>Ações</th></tr></thead>
+            <tbody id="lista_materiais"></tbody>
+        </table>
+    </div>
+
+    <div id="clientes" class="tab-content">
+        <div class="form-card">
+            <h3>Gerenciar Cliente</h3>
+            <input type="hidden" id="id_cliente">
+            <div class="form-group">
+                <label>Nome / Razão Social:</label>
+                <input type="text" id="nome_cliente">
+            </div>
+            <div class="form-group">
+                <label>CPF / CNPJ:</label>
+                <input type="text" id="cpf_cliente">
+            </div>
+            <div class="form-group">
+                <label>Telefone:</label>
+                <input type="text" id="tel_cliente">
+            </div>
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" id="email_cliente">
+            </div>
+            <button class="btn-save" onclick="salvarCliente()">Salvar Cliente</button>
+            <button class="btn-cancel" id="btn_cancel_cli" onclick="limparFormCliente()">Cancelar Edição</button>
+        </div>
+
+        <table>
+            <thead><tr><th>ID</th><th>Nome</th><th>Contato</th><th>Ações</th></tr></thead>
+            <tbody id="lista_clientes"></tbody>
+        </table>
+    </div>
+
+    <div id="blocos" class="tab-content">
+        <div class="form-card">
+            <h3>Gerenciar Bloco</h3>
+            <input type="hidden" id="id_bloco">
+            <div class="form-group">
+                <label>Código do Bloco:</label>
+                <input type="text" id="codigo_bloco" placeholder="Ex: A-101">
+            </div>
+            <div class="form-group">
+                <label>Dimensões (Largura / Altura / Profundidade):</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="larg_bloco" placeholder="L" step="0.01">
+                    <input type="number" id="alt_bloco" placeholder="A" step="0.01">
+                    <input type="number" id="prof_bloco" placeholder="P" step="0.01">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Material (Tipo de Pedra):</label>
+                <select id="select_material_bloco">
+                    <option value="">Carregando...</option>
+                </select>
+            </div>
+            <button class="btn-save" onclick="salvarBloco()">Salvar Bloco</button>
+            <button class="btn-cancel" id="btn_cancel_blo" onclick="limparFormBloco()">Cancelar Edição</button>
+        </div>
+
+        <table>
+            <thead><tr><th>Cód</th><th>Material</th><th>Dimensões</th><th>Ações</th></tr></thead>
+            <tbody id="lista_blocos"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const API_URL = "http://localhost:5000/api";
+
+    // --- FUNÇÕES GERAIS ---
+    function abrirAba(nomeAba) {
+        // Esconde todas as abas
+        document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        
+        // Mostra a selecionada e carrega os dados
+        document.getElementById(nomeAba).classList.add('active');
+        event.currentTarget.classList.add('active'); // Botão ativo
+
+        if(nomeAba === 'materiais') listarMateriais();
+        if(nomeAba === 'clientes') listarClientes();
+        if(nomeAba === 'blocos') { listarBlocos(); carregarSelectMateriais(); }
+    }
+
+    // Inicializar na aba materiais
+    listarMateriais();
+
+    // ================= LÓGICA DE MATERIAIS =================
+    async function listarMateriais() {
+        const res = await fetch(`${API_URL}/materiais`);
+        const dados = await res.json();
+        const tbody = document.getElementById('lista_materiais');
+        tbody.innerHTML = '';
+
+        dados.forEach(m => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${m.id}</td>
+                    <td>${m.nome}</td>
+                    <td>R$ ${m.preco_m2.toFixed(2)}</td>
+                    <td class="actions">
+                        <button class="btn-edit" onclick='editarMaterial(${JSON.stringify(m)})'>✏️</button>
+                        <button class="btn-delete" onclick="deletarItem('materiais', ${m.id}, listarMateriais)">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    async function salvarMaterial() {
+        const id = document.getElementById('id_material').value;
+        const corpo = {
+            nome: document.getElementById('nome_material').value,
+            preco_m2: parseFloat(document.getElementById('preco_material').value)
+        };
+
+        const metodo = id ? 'PUT' : 'POST';
+        const url = id ? `${API_URL}/materiais/${id}` : `${API_URL}/materiais`;
+
+        await fetch(url, {
+            method: metodo,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(corpo)
+        });
+
+        limparFormMaterial();
+        listarMateriais();
+    }
+
+    function editarMaterial(m) {
+        document.getElementById('id_material').value = m.id;
+        document.getElementById('nome_material').value = m.nome;
+        document.getElementById('preco_material').value = m.preco_m2;
+        document.querySelector('#materiais .btn-save').textContent = "Atualizar Material";
+        document.getElementById('btn_cancel_mat').style.display = 'block';
+    }
+
+    function limparFormMaterial() {
+        document.getElementById('id_material').value = '';
+        document.getElementById('nome_material').value = '';
+        document.getElementById('preco_material').value = '';
+        document.querySelector('#materiais .btn-save').textContent = "Salvar Material";
+        document.getElementById('btn_cancel_mat').style.display = 'none';
+    }
+
+    // ================= LÓGICA DE CLIENTES =================
+    async function listarClientes() {
+        const res = await fetch(`${API_URL}/clientes`);
+        const dados = await res.json();
+        const tbody = document.getElementById('lista_clientes');
+        tbody.innerHTML = '';
+
+        dados.forEach(c => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${c.id}</td>
+                    <td>${c.nome}</td>
+                    <td>${c.telefone}<br><small>${c.email}</small></td>
+                    <td class="actions">
+                        <button class="btn-edit" onclick='editarCliente(${JSON.stringify(c)})'>✏️</button>
+                        <button class="btn-delete" onclick="deletarItem('clientes', ${c.id}, listarClientes)">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    async function salvarCliente() {
+        const id = document.getElementById('id_cliente').value;
+        const corpo = {
+            nome: document.getElementById('nome_cliente').value,
+            cpf_cnpj: document.getElementById('cpf_cliente').value,
+            telefone: document.getElementById('tel_cliente').value,
+            email: document.getElementById('email_cliente').value
+        };
+
+        const metodo = id ? 'PUT' : 'POST';
+        const url = id ? `${API_URL}/clientes/${id}` : `${API_URL}/clientes`;
+
+        await fetch(url, {
+            method: metodo,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(corpo)
+        });
+
+        limparFormCliente();
+        listarClientes();
+    }
+
+    function editarCliente(c) {
+        document.getElementById('id_cliente').value = c.id;
+        document.getElementById('nome_cliente').value = c.nome;
+        document.getElementById('cpf_cliente').value = c.cpf_cnpj;
+        document.getElementById('tel_cliente').value = c.telefone;
+        document.getElementById('email_cliente').value = c.email;
+        document.querySelector('#clientes .btn-save').textContent = "Atualizar Cliente";
+        document.getElementById('btn_cancel_cli').style.display = 'block';
+    }
+
+    function limparFormCliente() {
+        document.getElementById('id_cliente').value = '';
+        document.getElementById('nome_cliente').value = '';
+        document.getElementById('cpf_cliente').value = '';
+        document.getElementById('tel_cliente').value = '';
+        document.getElementById('email_cliente').value = '';
+        document.querySelector('#clientes .btn-save').textContent = "Salvar Cliente";
+        document.getElementById('btn_cancel_cli').style.display = 'none';
+    }
+
+    // ================= LÓGICA DE BLOCOS =================
+    async function listarBlocos() {
+        const res = await fetch(`${API_URL}/blocos`);
+        const dados = await res.json();
+        const tbody = document.getElementById('lista_blocos');
+        tbody.innerHTML = '';
+
+        dados.forEach(b => {
+            // Nota: O JOIN da API retorna 'material_nome'
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${b.codigo}</strong></td>
+                    <td>${b.material_nome}</td>
+                    <td>${b.dimensoes}</td>
+                    <td class="actions">
+                        <button class="btn-edit" onclick='editarBloco(${JSON.stringify(b)})'>✏️</button>
+                        <button class="btn-delete" onclick="deletarItem('blocos', ${b.id}, listarBlocos)">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // Carrega o Select de Materiais dentro da aba Blocos
+    async function carregarSelectMateriais() {
+        const res = await fetch(`${API_URL}/materiais`);
+        const dados = await res.json();
+        const select = document.getElementById('select_material_bloco');
+        select.innerHTML = '<option value="">Selecione um Material...</option>';
+        dados.forEach(m => {
+            select.innerHTML += `<option value="${m.id}">${m.nome}</option>`;
+        });
+    }
+
+    async function salvarBloco() {
+        const id = document.getElementById('id_bloco').value;
+        const corpo = {
+            codigo: document.getElementById('codigo_bloco').value,
+            largura: parseFloat(document.getElementById('larg_bloco').value),
+            altura: parseFloat(document.getElementById('alt_bloco').value),
+            profundidade: parseFloat(document.getElementById('prof_bloco').value),
+            id_material: parseInt(document.getElementById('select_material_bloco').value) // FK
+        };
+
+        const metodo = id ? 'PUT' : 'POST';
+        const url = id ? `${API_URL}/blocos/${id}` : `${API_URL}/blocos`;
+
+        await fetch(url, {
+            method: metodo,
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(corpo)
+        });
+
+        limparFormBloco();
+        listarBlocos();
+    }
+
+    function editarBloco(b) {
+        // Precisamos quebrar a string de dimensões (ex: "2.0x1.5x1.0") se ela vier formatada, 
+        // ou pegar direto do objeto se a API mandar separado. 
+        // No seu código atual da API de blocos, o GET retorna 'dimensoes' formatado.
+        // Dica: Para edição funcionar perfeitamente, seria ideal a API retornar larg/alt/prof separados no GET.
+        // Como paliativo aqui, vou tentar extrair ou resetar.
+        
+        // Se a API retornar os campos separados (ideal):
+        // if(b.largura) ...
+        
+        // Pelo seu código atual em routes_blocos.py, você retorna formatado.
+        // Vou assumir que o usuário redigita as dimensões ou vamos fazer um "split" simples
+        const dims = b.dimensoes.split('x');
+
+        document.getElementById('id_bloco').value = b.id;
+        document.getElementById('codigo_bloco').value = b.codigo;
+        document.getElementById('larg_bloco').value = dims[0] || '';
+        document.getElementById('alt_bloco').value = dims[1] || '';
+        document.getElementById('prof_bloco').value = dims[2] || '';
+        
+        // Selecionar o Material no Dropdown (O Select já deve estar carregado)
+        // O objeto 'b' precisa ter o ID do material. No seu GET atual, só vem o nome.
+        // AJUSTE: O ideal é que o GET /api/blocos retorne TAMBÉM o id_material_fk escondido.
+        // Como paliativo, vou selecionar pelo texto ou pedir para selecionar de novo.
+        // O CORRETO: Ajustar routes_blocos.py para retornar id_material_fk.
+        
+        alert("Atenção: Selecione o material novamente e confira as dimensões.");
+        
+        document.querySelector('#blocos .btn-save').textContent = "Atualizar Bloco";
+        document.getElementById('btn_cancel_blo').style.display = 'block';
+    }
+
+    function limparFormBloco() {
+        document.getElementById('id_bloco').value = '';
+        document.getElementById('codigo_bloco').value = '';
+        document.getElementById('larg_bloco').value = '';
+        document.getElementById('alt_bloco').value = '';
+        document.getElementById('prof_bloco').value = '';
+        document.getElementById('select_material_bloco').value = '';
+        document.querySelector('#blocos .btn-save').textContent = "Salvar Bloco";
+        document.getElementById('btn_cancel_blo').style.display = 'none';
+    }
+
+    // ================= GENÉRICO DELETAR =================
+    async function deletarItem(rota, id, funcaoAtualizar) {
+        if(confirm("Tem certeza que deseja deletar este item?")) {
+            await fetch(`${API_URL}/${rota}/${id}`, { method: 'DELETE' });
+            funcaoAtualizar();
         }
-    </script>
+    }
+
+</script>
+
 </body>
 </html>
